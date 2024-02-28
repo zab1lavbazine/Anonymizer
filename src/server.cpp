@@ -292,21 +292,11 @@ class KafkaHandler {
 
     void processMessagePayload(const char* payload, size_t len) {
       if (payload && len > 0) {
-        size_t size = len;
-        void* alignedBuffer = malloc(size);
-        if (alignedBuffer == nullptr) {
-          std::cerr << "Failed to allocate memory" << std::endl;
-          return;
-        }
-        memcpy(alignedBuffer, payload, size);
-        HttpLog httpLog =
-            decodeMessagePayload(static_cast<const char*>(alignedBuffer), size);
-        // check if the queue is available
+        std::string alignedBuffer(payload, len);
+        HttpLog httpLog = decodeMessagePayload(alignedBuffer.c_str(), len);
         pushInQueueIfAvailable(httpLog);
-        free(alignedBuffer);
       }
     }
-
     void consume_cb(RdKafka::Message& message, void* opaquem) {
       switch (message.err()) {
         case RdKafka::ERR__TIMED_OUT:
@@ -488,7 +478,7 @@ int main(void) {
     return 1;
   }
 
-  // kafkaHandler.start();
+  kafkaHandler.start();
 
   return 0;
 }
