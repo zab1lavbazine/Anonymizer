@@ -225,6 +225,10 @@ class KafkaHandler {
 
   void configureHttpSender(const std::string& url) {
     httpSender = new HttpSender(url, &httpLogQueue, &mutex, &condition);
+    bool checkUrl = httpSender->checkValidUrl();
+    if (!checkUrl) {
+      exit(EXIT_FAILURE);
+    }
   }
 
  private:
@@ -263,22 +267,26 @@ class KafkaHandler {
       conf->set("metadata.broker.list", brokers, errstr);
       conf->set("group.id", "http_log_consumer", errstr);
 
+      // Create the Kafka consumer
       consumer = RdKafka::KafkaConsumer::create(conf, errstr);
       if (!consumer) {
-        // throw error
+        std::cerr << "Failed to create Kafka consumer: " << errstr << std::endl;
         delete conf;
         delete tconf;
         exit(EXIT_FAILURE);
       }
 
+      // Subscribe to the topic
       RdKafka::ErrorCode resp = consumer->subscribe({topic});
       if (resp != RdKafka::ERR_NO_ERROR) {
-        // throw error
+        std::cerr << "Failed to subscribe to topic: " << RdKafka::err2str(resp)
+                  << std::endl;
         delete consumer;
         delete tconf;
         delete conf;
         exit(EXIT_FAILURE);
       }
+
       std::cout << "Kafka consumer subscribed to " << topic << std::endl;
     }
 
@@ -395,6 +403,18 @@ class KafkaHandler {
       return requestBodyStream.str();
     }
 
+    bool checkValidUrl() {
+      try {
+        web::http::client::http_client client(U(url));
+        web::http::http_request request(web::http::methods::GET);
+        auto response = client.request(request).get();
+        return response.status_code() == web::http::status_codes::OK;
+      } catch (const std::exception& e) {
+        std::cout << "Error with http connect\n";
+        return false;
+      }
+    }
+
     void send() {
       web::http::client::http_client client(U(url));
       web::http::http_request request(web::http::methods::POST);
@@ -465,20 +485,17 @@ int main(void) {
   KafkaHandler kafkaHandler;
 
   try {
-    // commented for the docker
-    kafkaHandler.configureKafkaConsumer("localhost:9092", "http_log");
-    // kafkaHandler.configureKafkaConsumer("broker:9092", "http_log");
+    kafkaHandler.configureKafkaConsumer("broker:9092", "http_log");
+
     kafkaHandler.configureHttpSender(
-        "http://localhost:8124/clickhouse-endpoint");
-    //
-    // kafkaHandler.configureHttpSender(
-    //     "http://ch-proxy:8124/clickhouse-endpoint");
+        "http://ch-proxy:8124/clickhouse-endpoint");
+
   } catch (const std::exception& e) {
     std::cout << "Error : " << e.what() << std::endl;
     return 1;
   }
 
-  kafkaHandler.start();
+  // kafkaHandler.start();
 
   return 0;
 }
