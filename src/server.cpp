@@ -10,6 +10,7 @@
 #include <iostream>
 #include <mutex>
 #include <queue>
+#include <stdexcept>
 #include <thread>
 
 #include "http_log.capnp.h"
@@ -130,6 +131,17 @@ void sendRequestInFile(const std::string& requestBody) {
   }
 }
 
+void saveResponseInFile(const std::string& response) {
+  std::ofstream outputFile("response.txt", std::ofstream::out);
+  if (outputFile.is_open()) {
+    outputFile << response;
+    outputFile.close();
+    std::cout << "Response saved to file 'response.txt'" << std::endl;
+  } else {
+    std::cerr << "Failed to open file for writing" << std::endl;
+  }
+}
+
 template <typename T>
 class ThreadSafeQueue {
  public:
@@ -189,9 +201,11 @@ class KafkaHandler {
   ~KafkaHandler() {
     if (kafkaConsumerThread && kafkaConsumerThread->joinable()) {
       kafkaConsumerThread->join();
+      delete kafkaConsumerThread;
     }
     if (httpSenderThread && httpSenderThread->joinable()) {
       httpSenderThread->join();
+      delete httpSenderThread;
     }
 
     if (kafkaConsumer) {
@@ -206,19 +220,11 @@ class KafkaHandler {
                               const std::string& topic) {
     kafkaConsumer =
         new KafkaConsumer(broker, topic, &httpLogQueue, &mutex, &condition);
-    try {
-      kafkaConsumer->configure();
-    } catch (const std::exception& e) {
-      delete kafkaConsumer;
-      delete httpSender;
-      kafkaConsumer = nullptr;
-      httpSender = nullptr;
-      throw;
-    }
+    kafkaConsumer->configure();
   }
+
   void configureHttpSender(const std::string& url) {
     httpSender = new HttpSender(url, &httpLogQueue, &mutex, &condition);
-    std::cout << "HttpSender configured" << std::endl;
   }
 
  private:
@@ -259,15 +265,19 @@ class KafkaHandler {
 
       consumer = RdKafka::KafkaConsumer::create(conf, errstr);
       if (!consumer) {
-        std::cerr << "Failed to create consumer: " << errstr << std::endl;
-        return;
+        // throw error
+        delete conf;
+        delete tconf;
+        exit(EXIT_FAILURE);
       }
 
       RdKafka::ErrorCode resp = consumer->subscribe({topic});
       if (resp != RdKafka::ERR_NO_ERROR) {
-        std::cerr << "Failed to subscribe to " << topic << ": "
-                  << RdKafka::err2str(resp) << std::endl;
-        return;
+        // throw error
+        delete consumer;
+        delete tconf;
+        delete conf;
+        exit(EXIT_FAILURE);
       }
       std::cout << "Kafka consumer subscribed to " << topic << std::endl;
     }
@@ -280,6 +290,23 @@ class KafkaHandler {
       }
     }
 
+    void processMessagePayload(const char* payload, size_t len) {
+      if (payload && len > 0) {
+        size_t size = len;
+        void* alignedBuffer = malloc(size);
+        if (alignedBuffer == nullptr) {
+          std::cerr << "Failed to allocate memory" << std::endl;
+          return;
+        }
+        memcpy(alignedBuffer, payload, size);
+        HttpLog httpLog =
+            decodeMessagePayload(static_cast<const char*>(alignedBuffer), size);
+        // check if the queue is available
+        pushInQueueIfAvailable(httpLog);
+        free(alignedBuffer);
+      }
+    }
+
     void consume_cb(RdKafka::Message& message, void* opaquem) {
       switch (message.err()) {
         case RdKafka::ERR__TIMED_OUT:
@@ -287,25 +314,8 @@ class KafkaHandler {
           break;
 
         case RdKafka::ERR_NO_ERROR:
-          // Message received successfully
-          std::cout << "Message payload: "
-                    << std::string(static_cast<char*>(message.payload()),
-                                   message.len())
-                    << std::endl;
-          if (message.payload() && message.len() > 0) {
-            size_t size = message.len();
-            void* alignedBuffer = malloc(size);
-            if (alignedBuffer == nullptr) {
-              std::cerr << "Failed to allocate memory" << std::endl;
-              return;
-            }
-            memcpy(alignedBuffer, message.payload(), size);
-            HttpLog httpLog = decodeMessagePayload(
-                static_cast<const char*>(alignedBuffer), size);
-            // check if the queue is available
-            pushInQueueIfAvailable(httpLog);
-            free(alignedBuffer);
-          }
+          processMessagePayload(static_cast<const char*>(message.payload()),
+                                message.len());
           break;
 
         default:
@@ -376,24 +386,31 @@ class KafkaHandler {
           condition(condition) {}
     ~HttpSender() {}
 
-    void send() {
-      web::http::client::http_client client(U(url));
-      web::http::http_request request(web::http::methods::POST);
-
+    std::string constructSqlInsertQueries(const std::vector<HttpLog>& logs) {
       std::ostringstream requestBodyStream;
 
       // Construct SQL INSERT queries for each log entry
       requestBodyStream << "INSERT INTO http_log (timestamp, resource_id, "
                            "bytes_sent, request_time_milli, response_status, "
                            "cache_status, method, remote_addr, url) VALUES\n";
-      for (const auto& log : innerHttpLogVector) {
-        requestBodyStream << log.toSqlInsert();
-        if (&log != &innerHttpLogVector.back()) {
+      for (auto it = logs.begin(); it != logs.end(); ++it) {
+        requestBodyStream << it->toSqlInsert();
+        if (std::next(it) != logs.end()) {
           requestBodyStream << ",\n";
         } else {
           requestBodyStream << ";";
         }
       }
+
+      return requestBodyStream.str();
+    }
+
+    void send() {
+      web::http::client::http_client client(U(url));
+      web::http::http_request request(web::http::methods::POST);
+
+      std::ostringstream requestBodyStream;
+      requestBodyStream << constructSqlInsertQueries(innerHttpLogVector);
 
       request.headers().set_content_type(U("text/plain; charset=utf-8"));
       request.set_body(requestBodyStream.str());
@@ -409,16 +426,7 @@ class KafkaHandler {
       }
 
       sendRequestInFile(requestBodyStream.str());
-
-      // Save the response to a file
-      std::ofstream outputFile("response.txt", std::ofstream::out);
-      if (outputFile.is_open()) {
-        outputFile << response.to_string();
-        outputFile.close();
-        std::cout << "Response saved to file 'response.txt'" << std::endl;
-      } else {
-        std::cerr << "Failed to open file for writing" << std::endl;
-      }
+      saveResponseInFile(response.to_string());
     }
 
     void checkIfAvailable() {
@@ -431,7 +439,7 @@ class KafkaHandler {
       lock.unlock();
 
       if (!innerHttpLogVector.empty()) {
-        sendSize(innerHttpLogVector.size());
+        // sendSize(innerHttpLogVector.size());
         send();
       }
     }
@@ -466,13 +474,21 @@ class KafkaHandler {
 int main(void) {
   KafkaHandler kafkaHandler;
 
-  // commented for the docker
-  kafkaHandler.configureKafkaConsumer("localhost:9092", "http_log");
-  // kafkaHandler.configureKafkaConsumer("broker:9092", "http_log");
-  kafkaHandler.configureHttpSender("http://localhost:8124/clickhouse-endpoint");
-  // kafkaHandler.configureHttpSender("http://ch-proxy:8124/clickhouse-endpoint");
+  try {
+    // commented for the docker
+    kafkaHandler.configureKafkaConsumer("localhost:9092", "http_log");
+    // kafkaHandler.configureKafkaConsumer("broker:9092", "http_log");
+    kafkaHandler.configureHttpSender(
+        "http://localhost:8124/clickhouse-endpoint");
+    //
+    // kafkaHandler.configureHttpSender(
+    //     "http://ch-proxy:8124/clickhouse-endpoint");
+  } catch (const std::exception& e) {
+    std::cout << "Error : " << e.what() << std::endl;
+    return 1;
+  }
 
-  kafkaHandler.start();
+  // kafkaHandler.start();
 
   return 0;
 }
