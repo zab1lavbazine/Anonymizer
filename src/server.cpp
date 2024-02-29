@@ -15,6 +15,11 @@
 
 #include "http_log.capnp.h"
 
+#define INSERT_INTO_DATABASE                                    \
+  "INSERT INTO http_log (timestamp, resource_id, bytes_sent, "  \
+  "request_time_milli, response_status, cache_status, method, " \
+  "remote_addr, url) VALUES"
+
 #define CHECK_TABLE                     \
   "SELECT count(*) FROM system.tables " \
   "WHERE name ='http_log';"
@@ -412,10 +417,10 @@ class KafkaHandler {
     std::string constructSqlInsertQueries(const std::vector<HttpLog>& logs) {
       std::ostringstream requestBodyStream;
 
+      sendSize(logs.size());
+
       // Construct SQL INSERT queries for each log entry
-      requestBodyStream << "INSERT INTO http_log (timestamp, resource_id, "
-                           "bytes_sent, request_time_milli, response_status, "
-                           "cache_status, method, remote_addr, url) VALUES\n";
+      requestBodyStream << INSERT_INTO_DATABASE << " ";
       for (auto it = logs.begin(); it != logs.end(); ++it) {
         requestBodyStream << it->toSqlInsert();
         if (std::next(it) != logs.end()) {
@@ -526,7 +531,8 @@ class KafkaHandler {
     void startSending() {
       while (true) {
         std::cout << "Sleeping for 1 minute... -------------------->>>\n";
-        std::this_thread::sleep_for(std::chrono::minutes(1));
+        std::this_thread::sleep_for(std::chrono::minutes(1) +
+                                    std::chrono::seconds(5));
         // check the queue
         checkIfAvailable();
       }
