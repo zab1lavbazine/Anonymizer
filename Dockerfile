@@ -1,22 +1,35 @@
-# Use a base image with a C++ compiler
-FROM gcc:latest
+# Use an appropriate base image
+FROM ubuntu:latest
 
-# Install system dependencies
+# Install required libraries
 RUN apt-get update && apt-get install -y \
+    g++ \
     libcapnp-dev \
     libcpprest-dev \
     librdkafka-dev \
-    && rm -rf /var/lib/apt/lists/*
+    libssl-dev \
+    libboost-system-dev \
+    libboost-thread-dev \
+    cmake
 
-# Set the working directory inside the container
+# Set the working directory
 WORKDIR /app
 
 # Copy the source code into the container
-COPY server.cpp .
-COPY http_log.capnp.h .
+COPY src/ /app/src/
 
-# Compile the source code
-RUN g++ -o server server.cpp -lcapnp -lkj -lcapnpc -lcpprest -lrdkafka++ -lrdkafka
+# Compile the Cap'n Proto files
+RUN apt-get install -y capnproto && \
+    cd /app/src && \
+    for file in *.capnp; do \
+    capnp compile -oc++ "$file"; \
+    done
 
-# Set the entry point for the container
-CMD ["./server"]
+# Compile the server.cpp file
+RUN cd /app/src && \
+    g++ -g -o server server.cpp \
+    -lcapnp -lcapnp-rpc -lkj -lrdkafka -lrdkafka++ -lssl -lcrypto \
+    -lcpprest -lboost_system -lboost_thread -lpthread
+
+# Set the entry point
+CMD ["/app/src/server"]

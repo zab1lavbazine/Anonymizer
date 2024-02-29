@@ -1,3 +1,19 @@
 
-obj/
 
+
+
+
+
+# Ignore compiled Cap'n Proto files
+!src/server.cpp
+!src/http_log.capnp
+src/*
+
+# Ignore compiled server executable
+src/server
+
+# Ignore other build artifacts or files as needed
+
+# Except the original Cap'n Proto file and server source file
+!src/http_log.capnp
+!src/server.cpp

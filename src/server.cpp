@@ -26,6 +26,17 @@ void sendSize(size_t size) {
     std::cerr << "Failed to open file for writing" << std::endl;
   }
 }
+void sendErrorInFile(const std::string& error) {
+  // open new file
+  std::ofstream outputFile("error.txt", std::ofstream::out);
+  if (outputFile.is_open()) {
+    outputFile << error;
+    outputFile.close();
+    std::cout << "Error saved to file 'error.txt'" << std::endl;
+  } else {
+    std::cerr << "Failed to open file for writing" << std::endl;
+  }
+}
 
 class HttpLog {
  private:
@@ -225,10 +236,10 @@ class KafkaHandler {
 
   void configureHttpSender(const std::string& url) {
     httpSender = new HttpSender(url, &httpLogQueue, &mutex, &condition);
-    bool checkUrl = httpSender->checkValidUrl();
-    if (!checkUrl) {
-      exit(EXIT_FAILURE);
-    }
+    // bool checkUrl = httpSender->checkValidUrl();
+    // if (!checkUrl) {
+    //   exit(EXIT_FAILURE);
+    // }
   }
 
  private:
@@ -308,7 +319,6 @@ class KafkaHandler {
     void consume_cb(RdKafka::Message& message, void* opaquem) {
       switch (message.err()) {
         case RdKafka::ERR__TIMED_OUT:
-          std::cerr << "Timed out" << std::endl;
           break;
 
         case RdKafka::ERR_NO_ERROR:
@@ -319,7 +329,8 @@ class KafkaHandler {
         default:
           // Handle other errors
           std::cerr << "Error: " << message.errstr() << std::endl;
-          break;
+          sendErrorInFile(message.errstr());
+          exit(EXIT_FAILURE);
       }
     }
 
@@ -485,17 +496,14 @@ int main(void) {
   KafkaHandler kafkaHandler;
 
   try {
-    kafkaHandler.configureKafkaConsumer("broker:9092", "http_log");
-
     kafkaHandler.configureHttpSender(
-        "http://ch-proxy:8124/clickhouse-endpoint");
-
+        "http://localhost:8124/clickhouse-endpoint");
+    kafkaHandler.configureKafkaConsumer("localhost:9092", "http_log");
+    kafkaHandler.start();
   } catch (const std::exception& e) {
     std::cout << "Error : " << e.what() << std::endl;
     return 1;
   }
-
-  // kafkaHandler.start();
 
   return 0;
 }
