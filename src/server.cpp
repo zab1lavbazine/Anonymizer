@@ -15,7 +15,6 @@
 
 #include "HttpLogQueries.hpp"
 #include "http_log.capnp.h"
-#include "json.hpp"
 
 void sendSize(size_t size) {
   // open new file
