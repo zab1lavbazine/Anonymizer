@@ -15,6 +15,19 @@
 
 #include "http_log.capnp.h"
 
+#define CREATE_TABLE                         \
+  "CREATE TABLE IF NOT EXISTS http_log ("    \
+  "    timestamp DateTime,"                  \
+  "    resource_id UInt64,"                  \
+  "    bytes_sent UInt64,"                   \
+  "    request_time_milli UInt64,"           \
+  "    response_status UInt16,"              \
+  "    cache_status LowCardinality(String)," \
+  "    method LowCardinality(String),"       \
+  "    remote_addr String,"                  \
+  "    url String"                           \
+  ") ENGINE = MergeTree();"
+
 void sendSize(size_t size) {
   // open new file
   std::ofstream outputFile("size.txt", std::ofstream::out);
@@ -189,53 +202,45 @@ class ThreadSafeQueue {
 
 class KafkaHandler {
  public:
-  KafkaHandler() {
-    kafkaConsumer = nullptr;
-    httpSender = nullptr;
-    kafkaConsumerThread = nullptr;
-    httpSenderThread = nullptr;
-  }
+  KafkaHandler()
+      : kafkaConsumer(nullptr),
+        httpSender(nullptr),
+        kafkaConsumerThread(nullptr),
+        httpSenderThread(nullptr) {}
 
   void start() {
     if (kafkaConsumer) {
-      kafkaConsumerThread =
-          new std::thread(&KafkaConsumer::startConsuming, kafkaConsumer);
+      kafkaConsumerThread = std::make_unique<std::thread>(
+          &KafkaConsumer::startConsuming, kafkaConsumer.get());
       std::cout << "KafkaConsumer started" << std::endl;
     }
 
     if (httpSender) {
-      httpSenderThread = new std::thread(&HttpSender::startSending, httpSender);
+      httpSenderThread = std::make_unique<std::thread>(
+          &HttpSender::startSending, httpSender.get());
       std::cout << "HttpSender started" << std::endl;
     }
   }
 
   ~KafkaHandler() {
-    if (kafkaConsumerThread && kafkaConsumerThread->joinable()) {
+    if (kafkaConsumerThread) {
       kafkaConsumerThread->join();
-      delete kafkaConsumerThread;
     }
-    if (httpSenderThread && httpSenderThread->joinable()) {
+    if (httpSenderThread) {
       httpSenderThread->join();
-      delete httpSenderThread;
-    }
-
-    if (kafkaConsumer) {
-      delete kafkaConsumer;
-    }
-    if (httpSender) {
-      delete httpSender;
     }
   }
 
   void configureKafkaConsumer(const std::string& broker,
                               const std::string& topic) {
-    kafkaConsumer =
-        new KafkaConsumer(broker, topic, &httpLogQueue, &mutex, &condition);
+    kafkaConsumer = std::make_unique<KafkaConsumer>(
+        broker, topic, &httpLogQueue, &mutex, &condition);
     kafkaConsumer->configure();
   }
 
   void configureHttpSender(const std::string& url) {
-    httpSender = new HttpSender(url, &httpLogQueue, &mutex, &condition);
+    httpSender =
+        std::make_unique<HttpSender>(url, &httpLogQueue, &mutex, &condition);
     // bool checkUrl = httpSender->checkValidUrl();
     // if (!checkUrl) {
     //   exit(EXIT_FAILURE);
@@ -292,6 +297,7 @@ class KafkaHandler {
       if (resp != RdKafka::ERR_NO_ERROR) {
         std::cerr << "Failed to subscribe to topic: " << RdKafka::err2str(resp)
                   << std::endl;
+        consumer->close();
         delete consumer;
         delete tconf;
         delete conf;
@@ -330,6 +336,7 @@ class KafkaHandler {
           // Handle other errors
           std::cerr << "Error: " << message.errstr() << std::endl;
           sendErrorInFile(message.errstr());
+          consumer->close();
           exit(EXIT_FAILURE);
       }
     }
@@ -450,6 +457,26 @@ class KafkaHandler {
       saveResponseInFile(response.to_string());
     }
 
+    void createTableRequest() {
+      web::http::client::http_client client(U(url));
+      web::http::http_request request(web::http::methods::POST);
+
+      request.headers().set_content_type(U("text/plain; charset=utf-8"));
+      request.set_body(CREATE_TABLE);
+
+      auto response = client.request(request).get();
+
+      if (response.status_code() == web::http::status_codes::OK) {
+        std::cout << "Table created successfully" << std::endl;
+        tableCreated = true;
+      } else {
+        std::cerr << "Failed to create table. Status code: "
+                  << response.status_code() << std::endl;
+      }
+
+      saveResponseInFile(response.to_string());
+    }
+
     void checkIfAvailable() {
       std::unique_lock<std::mutex> lock(*mutex);
 
@@ -459,8 +486,9 @@ class KafkaHandler {
 
       lock.unlock();
 
-      if (!innerHttpLogVector.empty()) {
-        // sendSize(innerHttpLogVector.size());
+      if (!tableCreated) {
+        createTableRequest();
+      } else if (!innerHttpLogVector.empty()) {
         send();
       }
     }
@@ -480,13 +508,14 @@ class KafkaHandler {
     std::mutex* mutex;
     std::condition_variable* condition;
     std::vector<HttpLog> innerHttpLogVector;
+    bool tableCreated = false;
   };
 
  private:
-  KafkaConsumer* kafkaConsumer;
-  HttpSender* httpSender;
-  std::thread* kafkaConsumerThread;
-  std::thread* httpSenderThread;
+  std::unique_ptr<KafkaConsumer> kafkaConsumer;
+  std::unique_ptr<HttpSender> httpSender;
+  std::unique_ptr<std::thread> kafkaConsumerThread;
+  std::unique_ptr<std::thread> httpSenderThread;
   ThreadSafeQueue<HttpLog> httpLogQueue;
   std::mutex mutex;
   std::condition_variable condition;
@@ -498,7 +527,7 @@ int main(void) {
   try {
     kafkaHandler.configureHttpSender(
         "http://localhost:8124/clickhouse-endpoint");
-    kafkaHandler.configureKafkaConsumer("localhost:9092", "http_log");
+    kafkaHandler.configureKafkaConsumer("broker:9092", "http_log");
     kafkaHandler.start();
   } catch (const std::exception& e) {
     std::cout << "Error : " << e.what() << std::endl;
