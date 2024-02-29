@@ -1,9 +1,0 @@
-HTTP/1.1 200 OK
-Connection: keep-alive
-Content-Type: text/plain; charset=UTF-8
-Date: Wed, 28 Feb 2024 20:16:11 GMT
-Server: nginx/1.25.4
-Transfer-Encoding: chunked
-X-ClickHouse-Server-Display-Name: 551e82bafe44
-X-ClickHouse-Summary: {"read_rows":"0","read_bytes":"0","written_rows":"0","written_bytes":"0","total_rows_to_read":"0"}
-
