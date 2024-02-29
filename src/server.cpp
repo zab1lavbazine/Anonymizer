@@ -13,32 +13,9 @@
 #include <stdexcept>
 #include <thread>
 
+#include "HttpLogQueries.hpp"
 #include "http_log.capnp.h"
-
-#define INSERT_INTO_DATABASE                                    \
-  "INSERT INTO http_log (timestamp, resource_id, bytes_sent, "  \
-  "request_time_milli, response_status, cache_status, method, " \
-  "remote_addr, url) VALUES"
-
-#define CHECK_TABLE                     \
-  "SELECT count(*) FROM system.tables " \
-  "WHERE name ='http_log';"
-
-#define CREATE_TABLE                         \
-  "CREATE TABLE IF NOT EXISTS http_log ("    \
-  "    timestamp DateTime,"                  \
-  "    resource_id UInt64,"                  \
-  "    bytes_sent UInt64,"                   \
-  "    request_time_milli UInt64,"           \
-  "    response_status UInt16,"              \
-  "    cache_status LowCardinality(String)," \
-  "    method LowCardinality(String),"       \
-  "    remote_addr String,"                  \
-  "    url String"                           \
-  ") ENGINE = MergeTree() "                  \
-  "ORDER BY (timestamp) "                    \
-  "PRIMARY KEY (timestamp) "                 \
-  "SETTINGS index_granularity = 8192;"
+#include "json.hpp"
 
 void sendSize(size_t size) {
   // open new file
@@ -253,10 +230,6 @@ class KafkaHandler {
   void configureHttpSender(const std::string& url) {
     httpSender =
         std::make_unique<HttpSender>(url, &httpLogQueue, &mutex, &condition);
-    // bool checkUrl = httpSender->checkValidUrl();
-    // if (!checkUrl) {
-    //   exit(EXIT_FAILURE);
-    // }
   }
 
  private:
@@ -278,6 +251,7 @@ class KafkaHandler {
 
     ~KafkaConsumer() {
       if (consumer) {
+        consumer->close();
         delete consumer;
       }
       if (conf) {
@@ -304,7 +278,7 @@ class KafkaHandler {
         exit(EXIT_FAILURE);
       }
 
-      // Subscribe to the topic
+      // // Subscribe to the topic
       RdKafka::ErrorCode resp = consumer->subscribe({topic});
       if (resp != RdKafka::ERR_NO_ERROR) {
         std::cerr << "Failed to subscribe to topic: " << RdKafka::err2str(resp)
@@ -420,7 +394,7 @@ class KafkaHandler {
       sendSize(logs.size());
 
       // Construct SQL INSERT queries for each log entry
-      requestBodyStream << INSERT_INTO_DATABASE << " ";
+      requestBodyStream << INSERT_INTO_DATABASE_HTTP_LOG << " ";
       for (auto it = logs.begin(); it != logs.end(); ++it) {
         requestBodyStream << it->toSqlInsert();
         if (std::next(it) != logs.end()) {
@@ -431,18 +405,6 @@ class KafkaHandler {
       }
 
       return requestBodyStream.str();
-    }
-
-    bool checkValidUrl() {
-      try {
-        web::http::client::http_client client(U(url));
-        web::http::http_request request(web::http::methods::GET);
-        auto response = client.request(request).get();
-        return response.status_code() == web::http::status_codes::OK;
-      } catch (const std::exception& e) {
-        std::cout << "Error with http connect\n";
-        return false;
-      }
     }
 
     void send() {
@@ -469,47 +431,6 @@ class KafkaHandler {
       saveResponseInFile(response.to_string());
     }
 
-    void createTableRequest() {
-      web::http::client::http_client client(U(url));
-      web::http::http_request request(web::http::methods::POST);
-
-      request.headers().set_content_type(U("text/plain; charset=utf-8"));
-      request.set_body(CREATE_TABLE);
-
-      auto response = client.request(request).get();
-
-      if (response.status_code() == web::http::status_codes::OK) {
-        std::cout << "Table created successfully" << std::endl;
-        tableCreated = true;
-      } else {
-        std::cerr << "Failed to create table. Status code: "
-                  << response.status_code() << std::endl;
-      }
-
-      saveResponseInFile(response.to_string());
-    }
-
-    void checkTableExists() {
-      web::http::client::http_client client(U(url));
-      web::http::http_request request(web::http::methods::POST);
-
-      request.headers().set_content_type(U("text/plain; charset=utf-8"));
-      request.set_body(U(CHECK_TABLE));
-
-      auto response = client.request(request).get();
-      sendRequestInFile(request.to_string());
-
-      if (response.status_code() == web::http::status_codes::OK) {
-        std::string responseBody = response.extract_string().get();
-        checkTableExist = true;
-        saveResponseInFile(responseBody);
-      } else {
-        tableCreated = false;
-        checkTableExist = false;
-        saveResponseInFile(response.to_string());
-      }
-    }
-
     void checkIfAvailable() {
       std::unique_lock<std::mutex> lock(*mutex);
 
@@ -519,13 +440,7 @@ class KafkaHandler {
 
       lock.unlock();
 
-      if (!tableCreated) {
-        createTableRequest();
-      } else if (tableCreated && !checkTableExist) {
-        checkTableExists();
-      } else if (!innerHttpLogVector.empty()) {
-        send();
-      }
+      send();
     }
 
     void startSending() {
@@ -544,8 +459,6 @@ class KafkaHandler {
     std::mutex* mutex;
     std::condition_variable* condition;
     std::vector<HttpLog> innerHttpLogVector;
-    bool tableCreated = false;
-    bool checkTableExist = false;
   };
 
  private:
@@ -566,6 +479,7 @@ int main(void) {
         "http://localhost:8124/clickhouse-endpoint");
     kafkaHandler.configureKafkaConsumer("localhost:9092", "http_log");
     kafkaHandler.start();
+    return 0;
   } catch (const std::exception& e) {
     std::cout << "Error : " << e.what() << std::endl;
     return 1;
