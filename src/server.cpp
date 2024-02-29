@@ -15,6 +15,10 @@
 
 #include "http_log.capnp.h"
 
+#define CHECK_TABLE                     \
+  "SELECT count(*) FROM system.tables " \
+  "WHERE name ='http_log';"
+
 #define CREATE_TABLE                         \
   "CREATE TABLE IF NOT EXISTS http_log ("    \
   "    timestamp DateTime,"                  \
@@ -26,7 +30,10 @@
   "    method LowCardinality(String),"       \
   "    remote_addr String,"                  \
   "    url String"                           \
-  ") ENGINE = MergeTree();"
+  ") ENGINE = MergeTree() "                  \
+  "ORDER BY (timestamp) "                    \
+  "PRIMARY KEY (timestamp) "                 \
+  "SETTINGS index_granularity = 8192;"
 
 void sendSize(size_t size) {
   // open new file
@@ -477,6 +484,27 @@ class KafkaHandler {
       saveResponseInFile(response.to_string());
     }
 
+    void checkTableExists() {
+      web::http::client::http_client client(U(url));
+      web::http::http_request request(web::http::methods::POST);
+
+      request.headers().set_content_type(U("text/plain; charset=utf-8"));
+      request.set_body(U(CHECK_TABLE));
+
+      auto response = client.request(request).get();
+      sendRequestInFile(request.to_string());
+
+      if (response.status_code() == web::http::status_codes::OK) {
+        std::string responseBody = response.extract_string().get();
+        checkTableExist = true;
+        saveResponseInFile(responseBody);
+      } else {
+        tableCreated = false;
+        checkTableExist = false;
+        saveResponseInFile(response.to_string());
+      }
+    }
+
     void checkIfAvailable() {
       std::unique_lock<std::mutex> lock(*mutex);
 
@@ -488,6 +516,8 @@ class KafkaHandler {
 
       if (!tableCreated) {
         createTableRequest();
+      } else if (tableCreated && !checkTableExist) {
+        checkTableExists();
       } else if (!innerHttpLogVector.empty()) {
         send();
       }
@@ -509,6 +539,7 @@ class KafkaHandler {
     std::condition_variable* condition;
     std::vector<HttpLog> innerHttpLogVector;
     bool tableCreated = false;
+    bool checkTableExist = false;
   };
 
  private:
@@ -527,7 +558,7 @@ int main(void) {
   try {
     kafkaHandler.configureHttpSender(
         "http://localhost:8124/clickhouse-endpoint");
-    kafkaHandler.configureKafkaConsumer("broker:9092", "http_log");
+    kafkaHandler.configureKafkaConsumer("localhost:9092", "http_log");
     kafkaHandler.start();
   } catch (const std::exception& e) {
     std::cout << "Error : " << e.what() << std::endl;
