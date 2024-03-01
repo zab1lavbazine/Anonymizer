@@ -1,36 +1,33 @@
 # Use an appropriate base image
 FROM ubuntu:latest
 
-# Install required libraries
+# Install required libraries and tools
 RUN apt-get update && apt-get install -y \
     g++ \
     libcapnp-dev \
-    libcpprest-dev \
-    librdkafka-dev \
-    libssl-dev \
-    libboost-system-dev \
-    libboost-thread-dev \
     cmake \
     make \
     capnproto \
-    iproute2 \
-    net-tools \
-    iputils-ping \
-    curl
+    librdkafka-dev \
+    libssl-dev \
+    libcpprest-dev \
+    libboost-system-dev \
+    libboost-thread-dev
 
 # Set the working directory
-WORKDIR /app
+WORKDIR /Anonymizer
 
-# Copy the source code into the container
-COPY src/ /app/src/
-COPY Makefile /app/
+# Copy the source code and Makefile into the container
+COPY src/ ./src
+COPY Makefile ./
 
-# Compile the project using the Makefile
-RUN cd /app && \
-    make
+RUN mkdir compiled
+RUN mkdir output
 
-# Expose the necessary ports
-EXPOSE 9092 8124
+# Compile the project
+RUN make all
 
-# Set the entry point
-CMD ["/app/src/server"]
+
+
+# Run the application
+CMD ["./compiled/anonymizer"]
