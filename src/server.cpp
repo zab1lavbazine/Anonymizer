@@ -13,6 +13,8 @@
 #include <stdexcept>
 #include <thread>
 
+#define FILE_PATH "./output/"
+
 #include "HttpLogQueries.hpp"
 #include "http_log.capnp.h"
 
@@ -474,9 +476,8 @@ int main(void) {
   KafkaHandler kafkaHandler;
 
   try {
-    kafkaHandler.configureHttpSender(
-        "http://localhost:8124/clickhouse-endpoint");
     kafkaHandler.configureKafkaConsumer("localhost:9092", "http_log");
+    kafkaHandler.configureHttpSender("http://localhost:8124");
     kafkaHandler.start();
     return 0;
   } catch (const std::exception& e) {

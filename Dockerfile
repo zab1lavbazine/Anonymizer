@@ -10,26 +10,27 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     libboost-system-dev \
     libboost-thread-dev \
-    cmake
+    cmake \
+    make \
+    capnproto \
+    iproute2 \
+    net-tools \
+    iputils-ping \
+    curl
 
 # Set the working directory
 WORKDIR /app
 
 # Copy the source code into the container
 COPY src/ /app/src/
+COPY Makefile /app/
 
-# Compile the Cap'n Proto files
-RUN apt-get install -y capnproto && \
-    cd /app/src && \
-    for file in *.capnp; do \
-    capnp compile -oc++ "$file"; \
-    done
+# Compile the project using the Makefile
+RUN cd /app && \
+    make
 
-# Compile the server.cpp file
-RUN cd /app/src && \
-    g++ -g -o server server.cpp \
-    -lcapnp -lcapnp-rpc -lkj -lrdkafka -lrdkafka++ -lssl -lcrypto \
-    -lcpprest -lboost_system -lboost_thread -lpthread
+# Expose the necessary ports
+EXPOSE 9092 8124
 
 # Set the entry point
 CMD ["/app/src/server"]
