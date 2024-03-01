@@ -7,6 +7,7 @@
 
 #include <condition_variable>
 #include <csignal>
+#include <cstdlib>
 #include <iostream>
 #include <mutex>
 #include <queue>
