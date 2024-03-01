@@ -444,12 +444,41 @@ class KafkaHandler {
       send();
     }
 
+    void createTable() {
+      // Send queries to ClickHouse to create tables
+      if (sendQueryToClickHouse(CREATE_TABLE_HTTP_LOG) &&
+          sendQueryToClickHouse(CREATE_TABLE_HTTP_TRAFFIC_TOTALS_MV)) {
+        tableCreated = true;
+      }
+    }
+    bool sendQueryToClickHouse(const std::string& query) {
+      web::http::client::http_client client(U("http://localhost:8123"));
+      web::http::http_request request(web::http::methods::POST);
+      request.headers().set_content_type(U("text/plain; charset=utf-8"));
+      request.set_body(query);
+
+      auto response = client.request(request).get();
+
+      if (response.status_code() == web::http::status_codes::OK) {
+        std::cout << "Query sent successfully" << std::endl;
+        return true;
+      } else {
+        std::cerr << "Failed to send query. Status code: "
+                  << response.status_code() << std::endl;
+        return false;
+      }
+      return false;
+    }
+
     void startSending() {
       while (true) {
         std::cout << "Sleeping for 1 minute... -------------------->>>\n";
         std::this_thread::sleep_for(std::chrono::minutes(1) +
                                     std::chrono::seconds(5));
         // check the queue
+        if (!tableCreated) {
+          createTable();
+        }
         checkIfAvailable();
       }
     }
@@ -460,6 +489,7 @@ class KafkaHandler {
     std::mutex* mutex;
     std::condition_variable* condition;
     std::vector<HttpLog> innerHttpLogVector;
+    bool tableCreated = false;
   };
 
  private:
