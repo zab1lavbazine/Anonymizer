@@ -20,7 +20,8 @@
 
 void sendSize(size_t size) {
   // open new file
-  std::ofstream outputFile("size.txt", std::ofstream::out);
+  std::ofstream outputFile(std::string(FILE_PATH) + "size.txt",
+                           std::ofstream::out);
   if (outputFile.is_open()) {
     outputFile << size;
     outputFile.close();
@@ -31,7 +32,8 @@ void sendSize(size_t size) {
 }
 void sendErrorInFile(const std::string& error) {
   // open new file
-  std::ofstream outputFile("error.txt", std::ofstream::out);
+  std::ofstream outputFile(std::string(FILE_PATH) + "error.txt",
+                           std::ofstream::out);
   if (outputFile.is_open()) {
     outputFile << error;
     outputFile.close();
@@ -135,7 +137,8 @@ class HttpLog {
 
 void sendRequestInFile(const std::string& requestBody) {
   // open new file
-  std::ofstream outputFile("request.txt", std::ofstream::out);
+  std::ofstream outputFile(std::string(FILE_PATH) + "request.txt",
+                           std::ofstream::out);
   if (outputFile.is_open()) {
     outputFile << requestBody;
     outputFile.close();
@@ -146,7 +149,8 @@ void sendRequestInFile(const std::string& requestBody) {
 }
 
 void saveResponseInFile(const std::string& response) {
-  std::ofstream outputFile("response.txt", std::ofstream::out);
+  std::ofstream outputFile(std::string(FILE_PATH) + "response.txt",
+                           std::ofstream::out);
   if (outputFile.is_open()) {
     outputFile << response;
     outputFile.close();
