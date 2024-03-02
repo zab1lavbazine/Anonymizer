@@ -1,4 +1,0 @@
-/home/bar/Downloads/anonymizer/Anonymizer/CMakeFiles/anonymizer.dir
-/home/bar/Downloads/anonymizer/Anonymizer/CMakeFiles/run.dir
-/home/bar/Downloads/anonymizer/Anonymizer/CMakeFiles/edit_cache.dir
-/home/bar/Downloads/anonymizer/Anonymizer/CMakeFiles/rebuild_cache.dir
