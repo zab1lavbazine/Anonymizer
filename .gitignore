@@ -8,6 +8,9 @@ output/
 
 #ignore files
 anonymizer
+CMakeCache.txt
+cmake_install.cmake
+anonymizer
 
 #ignore all cmake files except the main one
 cmake_install.cmake
