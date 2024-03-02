@@ -67,7 +67,10 @@ void HttpSender::checkIfAvailable() {
 void HttpSender::createTable() {
   // Send queries to ClickHouse to create tables
   if (sendQueryToClickHouse(CREATE_TABLE_HTTP_LOG) &&
-      sendQueryToClickHouse(CREATE_TABLE_HTTP_TRAFFIC_TOTALS_MV)) {
+      sendQueryToClickHouse(CREATE_TABLE_HTTP_TRAFFIC_TOTALS_MV) &&
+      sendQueryToClickHouse(CREATE_MV_TRAFFIC_TOTALS(
+          http_traffic_totals, SummingMergeTree,
+          (resource_id, http_status, cache_status, ip_address), http_log))) {
     tableCreated = true;
   }
 }

@@ -45,4 +45,27 @@
   "cache_status, "                                                 \
   "remote_addr;"
 
+#define CREATE_MV_TRAFFIC_TOTALS(view_name, engine_type, order_by, table_name) \
+  "CREATE MATERIALIZED VIEW " #view_name                                       \
+  "\n"                                                                         \
+  "ENGINE = " #engine_type                                                     \
+  "\n"                                                                         \
+  "ORDER BY " #order_by                                                        \
+  "\n"                                                                         \
+  "AS\n"                                                                       \
+  "SELECT\n"                                                                   \
+  "    resource_id,\n"                                                         \
+  "    response_status,\n"                                                     \
+  "    cache_status,\n"                                                        \
+  "    remote_addr,\n"                                                         \
+  "    COUNT(*) AS traffic_count\n"                                            \
+  "FROM\n"                                                                     \
+  "    " #table_name                                                           \
+  "\n"                                                                         \
+  "GROUP BY\n"                                                                 \
+  "    resource_id,\n"                                                         \
+  "    response_status,\n"                                                     \
+  "    cache_status,\n"                                                        \
+  "    remote_addr;"
+
 #endif /* HTTP_LOG_QUERIES_H */
