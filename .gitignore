@@ -1,15 +1,25 @@
 
-
-
-
-
-
-# Ignore compiled Cap'n Proto files
-!src/server.cpp
-!src/json/*
-!src/http_log.capnp
-!src/HttpLogQueries.hpp
-src/*
-
+#ignore directories
+CMakeFiles/
 compiled/
 output/
+
+
+
+#ignore files
+anonymizer
+
+#ignore all cmake files except the main one
+cmake_install.cmake
+CMakeCache.txt
+Makefile
+
+
+
+
+#do not ignore
+!README.md
+!CMakeLists.txt
+!src/
+!include/
+!capnproto/
