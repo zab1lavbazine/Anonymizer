@@ -62,8 +62,6 @@ void HttpSender::checkIfAvailable() {
   }
 
   lock.unlock();
-
-  send();
 }
 
 void HttpSender::createTable() {
@@ -75,7 +73,7 @@ void HttpSender::createTable() {
 }
 
 bool HttpSender::sendQueryToClickHouse(const std::string& query) {
-  web::http::client::http_client client(U("http://localhost:8123"));
+  web::http::client::http_client client(U(CLICKHOUSE_HOST));
   web::http::http_request request(web::http::methods::POST);
   request.headers().set_content_type(U("text/plain; charset=utf-8"));
   request.set_body(query);
@@ -102,5 +100,8 @@ void HttpSender::startSending() {
       createTable();
     }
     checkIfAvailable();
+    if (!innerHttpLogVector.empty() && tableCreated) {
+      send();
+    }
   }
 }

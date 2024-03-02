@@ -1,6 +1,8 @@
 #ifndef HTTP_LOG_QUERIES_H
 #define HTTP_LOG_QUERIES_H
 
+#define CLICKHOUSE_HOST "http://localhost:8123"
+
 #define INSERT_INTO_DATABASE_HTTP_LOG                           \
   "INSERT INTO http_log (timestamp, resource_id, bytes_sent, "  \
   "request_time_milli, response_status, cache_status, method, " \
