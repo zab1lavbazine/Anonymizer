@@ -91,7 +91,7 @@ void KafkaConsumer::consume_cb(RdKafka::Message& message, void* opaquem) {
 
     default:
       std::cerr << "ERROR: " << message.errstr() << std::endl;
-      OutputHandler::sendErrorInFile(message.errstr());
+      OutputHandler::saveError(message.errstr(), LOG_ERROR_FILE);
       handleKafkaError(message.err());
       break;
   }

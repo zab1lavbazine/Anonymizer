@@ -14,7 +14,7 @@ std::string HttpSender::constructSqlInsertQueries(
     const std::vector<HttpLog>& logs) {
   std::ostringstream requestBodyStream;
 
-  OutputHandler::sendSize(logs.size());
+  OutputHandler::saveError(std::to_string(logs.size()), SIZE_FILE);
 
   // Construct SQL INSERT queries for each log entry
   requestBodyStream << INSERT_INTO_DATABASE_HTTP_LOG << " ";
@@ -94,21 +94,27 @@ void HttpSender::createTable() {
 }
 
 bool HttpSender::sendQueryToClickHouse(const std::string& query) {
-  web::http::client::http_client client(U(CLICKHOUSE_HOST));
-  web::http::http_request request(web::http::methods::POST);
-  request.headers().set_content_type(U("text/plain; charset=utf-8"));
-  request.set_body(query);
+  try {
+    web::http::client::http_client client(U(CLICKHOUSE_HOST));
+    web::http::http_request request(web::http::methods::POST);
+    request.headers().set_content_type(U("text/plain; charset=utf-8"));
+    request.set_body(query);
 
-  auto response = client.request(request).get();
+    auto response = client.request(request).get();
 
-  if (response.status_code() == web::http::status_codes::OK) {
-    std::cout << "Query sent successfully" << std::endl;
-    return true;
-  } else {
-    std::cerr << "Failed to send query. Status code: " << response.status_code()
-              << std::endl;
-    return false;
+    if (response.status_code() == web::http::status_codes::OK) {
+      std::cout << "Query sent successfully" << std::endl;
+      return true;
+    } else {
+      std::cerr << "Failed to send query. Status code: "
+                << response.status_code() << std::endl;
+      return false;
+    }
+  } catch (const std::exception& ex) {
+    handleRequestError(ex.what());
   }
+
+  return false;
 }
 
 void HttpSender::startSending() {
