@@ -23,49 +23,28 @@
   "ORDER BY (timestamp) "                     \
   "SETTINGS index_granularity = 8192;"
 
-#define CREATE_TABLE_HTTP_TRAFFIC_TOTALS_MV                        \
-  "CREATE MATERIALIZED VIEW IF NOT EXISTS http_traffic_totals "    \
-  "ENGINE = AggregatingMergeTree() "                               \
-  "PARTITION BY toYYYYMM(timestamp) "                              \
-  "ORDER BY (resource_id, http_status, cache_status, ip_address) " \
-  "POPULATE "                                                      \
-  "AS "                                                            \
-  "SELECT "                                                        \
-  "toStartOfDay(timestamp) AS timestamp, "                         \
-  "resource_id, "                                                  \
-  "response_status AS http_status, "                               \
-  "cache_status, "                                                 \
-  "remote_addr AS ip_address, "                                    \
-  "SUM(bytes_sent) AS total_bytes_sent "                           \
-  "FROM http_log "                                                 \
-  "GROUP BY "                                                      \
-  "timestamp, "                                                    \
-  "resource_id, "                                                  \
-  "response_status, "                                              \
-  "cache_status, "                                                 \
-  "remote_addr;"
-
-#define CREATE_MV_TRAFFIC_TOTALS(view_name, engine_type, order_by, table_name) \
-  "CREATE MATERIALIZED VIEW " #view_name                                       \
-  "\n"                                                                         \
-  "ENGINE = " #engine_type                                                     \
-  "\n"                                                                         \
-  "ORDER BY " #order_by                                                        \
-  "\n"                                                                         \
-  "AS\n"                                                                       \
-  "SELECT\n"                                                                   \
-  "    resource_id,\n"                                                         \
-  "    response_status,\n"                                                     \
-  "    cache_status,\n"                                                        \
-  "    remote_addr,\n"                                                         \
-  "    COUNT(*) AS traffic_count\n"                                            \
-  "FROM\n"                                                                     \
-  "    " #table_name                                                           \
-  "\n"                                                                         \
-  "GROUP BY\n"                                                                 \
-  "    resource_id,\n"                                                         \
-  "    response_status,\n"                                                     \
-  "    cache_status,\n"                                                        \
+#define CREATE_TABLE_HTTP_TRAFFIC_TOTALS_MV                           \
+  "CREATE MATERIALIZED VIEW IF NOT EXISTS traffic_totals_mv "         \
+  "ENGINE = MergeTree() "                                             \
+  "PARTITION BY toYYYYMM(timestamp) "                                 \
+  "ORDER BY (timestamp, resource_id, response_status, cache_status, " \
+  "remote_addr) "                                                     \
+  "AS "                                                               \
+  "SELECT "                                                           \
+  "    timestamp, "                                                   \
+  "    resource_id, "                                                 \
+  "    response_status, "                                             \
+  "    cache_status, "                                                \
+  "    remote_addr, "                                                 \
+  "    sum(bytes_sent) AS total_bytes_sent, "                         \
+  "    sum(request_time_milli) AS total_request_time "                \
+  "FROM "                                                             \
+  "    http_log "                                                     \
+  "GROUP BY "                                                         \
+  "    timestamp, "                                                   \
+  "    resource_id, "                                                 \
+  "    response_status, "                                             \
+  "    cache_status, "                                                \
   "    remote_addr;"
 
 #endif /* HTTP_LOG_QUERIES_H */

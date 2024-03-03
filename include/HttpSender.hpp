@@ -29,6 +29,7 @@ class HttpSender {
   void startSending();
   void handleResponse(const web::http::http_response& response);
   void handleRequestError(const std::string& errorMessage);
+  bool handleResponseClickhouse(const web::http::http_response& response);
 
  private:
   std::string constructSqlInsertQueries(const std::vector<HttpLog>& logs);

@@ -85,11 +85,24 @@ void HttpSender::checkIfAvailable() {
 void HttpSender::createTable() {
   // Send queries to ClickHouse to create tables
   if (sendQueryToClickHouse(CREATE_TABLE_HTTP_LOG) &&
-      sendQueryToClickHouse(CREATE_TABLE_HTTP_TRAFFIC_TOTALS_MV) &&
-      sendQueryToClickHouse(CREATE_MV_TRAFFIC_TOTALS(
-          http_traffic_totals, SummingMergeTree,
-          (resource_id, http_status, cache_status, ip_address), http_log))) {
+      sendQueryToClickHouse(CREATE_TABLE_HTTP_TRAFFIC_TOTALS_MV)) {
     tableCreated = true;
+  }
+}
+
+bool HttpSender::handleResponseClickhouse(
+    const web::http::http_response& response) {
+  if (response.status_code() == web::http::status_codes::OK) {
+    std::cout << "Request sent successfully" << std::endl;
+    return true;
+  } else {
+    std::cerr << "Failed to send request. Status code: "
+              << response.status_code() << std::endl;
+    // Log error message
+    OutputHandler::saveError("Failed to send request. Status code: " +
+                                 std::to_string(response.status_code()),
+                             LOG_ERROR_FILE);
+    return false;
   }
 }
 
@@ -102,14 +115,8 @@ bool HttpSender::sendQueryToClickHouse(const std::string& query) {
 
     auto response = client.request(request).get();
 
-    if (response.status_code() == web::http::status_codes::OK) {
-      std::cout << "Query sent successfully" << std::endl;
-      return true;
-    } else {
-      std::cerr << "Failed to send query. Status code: "
-                << response.status_code() << std::endl;
-      return false;
-    }
+    return handleResponseClickhouse(response);
+
   } catch (const std::exception& ex) {
     handleRequestError(ex.what());
   }
@@ -122,12 +129,15 @@ void HttpSender::startSending() {
     std::cout << "Sleeping for 1 minute... -------------------->>>\n";
     std::this_thread::sleep_for(std::chrono::minutes(1) +
                                 std::chrono::seconds(5));
-    // check the queue
+    // check the table creation
     if (!tableCreated) {
+      std::cout << "Creating table... -------------------->>>\n";
       createTable();
     }
+
     checkIfAvailable();
     if (!innerHttpLogVector.empty() && tableCreated) {
+      std::cout << "Sending... -------------------->>>\n";
       send();
     }
   }

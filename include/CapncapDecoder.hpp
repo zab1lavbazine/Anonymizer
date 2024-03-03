@@ -23,7 +23,7 @@ class CapncapDecoder {
     HttpLog httpLog(httpLogRecord);
     httpLog.anonymize();
 
-    std::cout << httpLog << std::endl;
+    // std::cout << httpLog << std::endl;
 
     return httpLog;
   }
