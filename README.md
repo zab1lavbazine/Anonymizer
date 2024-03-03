@@ -54,3 +54,11 @@ A class responsible for the sending of HTTP requests to ClickHouse. It uses the 
 - **High Message Consumption Rate**: The Kafka consumer is consuming messages from the Kafka topic at a constant rate, regardless of the rate at which the messages are being produced.
 - **Data Persistence**: Consider implementing mechanisms for data persistence or backup to prevent data loss in case of system failures or crashes. This could involve periodically flushing the message queue to persistent storage or leveraging Kafka features such as message offsets for message replayability.
 - **Lack of Duplicate Record Mechanism**: There is no mechanism in place to prevent the storage of duplicate records in ClickHouse.
+
+
+## Requirements
+
+- **C++17**: The project is written in C++17 and requires a C++17 compliant compiler.
+- **Cap'n Proto**: The project relies on Cap'n Proto for message serialization and schema handling.
+- **cpprestsdk (C++ REST SDK)**: This library is used for making HTTP requests.
+- **KJ Library**: Necessary for handling I/O operations, typically included as part of the Cap'n Proto library.
