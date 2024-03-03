@@ -47,7 +47,7 @@ A class responsible for the sending of HTTP requests to ClickHouse. It uses the 
 
 ## Possible problems
 
-## Latency of the Data:
+### Latency of the Data:
 
 - **Limitations**: The latency of the data can vary depending on factors such as network latency, processing time for decoding Cap'N Proto messages.
 - **Unbounded Message Queue**: The Kafka consumer pushes messages into an in-memory queue (innerHttpLogQueue) without any bounds or limits on its size. This could lead to excessive memory consumption, especially during periods of high message influx, and may result in out-of-memory errors or system instability.
