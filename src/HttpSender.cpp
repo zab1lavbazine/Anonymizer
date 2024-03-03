@@ -30,28 +30,46 @@ std::string HttpSender::constructSqlInsertQueries(
   return requestBodyStream.str();
 }
 
-void HttpSender::send() {
-  web::http::client::http_client client(U(url));
-  web::http::http_request request(web::http::methods::POST);
-
-  std::ostringstream requestBodyStream;
-  requestBodyStream << constructSqlInsertQueries(innerHttpLogVector);
-
-  request.headers().set_content_type(U("text/plain; charset=utf-8"));
-  request.set_body(requestBodyStream.str());
-
-  auto response = client.request(request).get();
-
+void HttpSender::handleResponse(const web::http::http_response& response) {
   if (response.status_code() == web::http::status_codes::OK) {
     std::cout << "Request sent successfully" << std::endl;
     innerHttpLogVector.clear();
   } else {
     std::cerr << "Failed to send request. Status code: "
               << response.status_code() << std::endl;
+    // Log error message
+    OutputHandler::saveError("Failed to send request. Status code: " +
+                                 std::to_string(response.status_code()),
+                             LOG_ERROR_FILE);
   }
+}
 
-  OutputHandler::sendRequestInFile(requestBodyStream.str());
-  OutputHandler::sendResponseInFile(response.to_string());
+void HttpSender::handleRequestError(const std::string& errorMessage) {
+  std::cerr << "Error during HTTP request : " << errorMessage << std::endl;
+  OutputHandler::saveError("Error during HTTP request: " + errorMessage,
+                           LOG_ERROR_FILE);
+}
+
+void HttpSender::send() {
+  try {
+    web::http::client::http_client client(U(url));
+    web::http::http_request request(web::http::methods::POST);
+
+    std::ostringstream requestBodyStream;
+    requestBodyStream << constructSqlInsertQueries(innerHttpLogVector);
+
+    request.headers().set_content_type(U("text/plain; charset=utf-8"));
+    request.set_body(requestBodyStream.str());
+
+    auto response = client.request(request).get();
+
+    handleResponse(response);
+
+    OutputHandler::saveError(requestBodyStream.str(), REQUEST_FILE);
+    OutputHandler::saveError(response.to_string(), RESPONSE_FILE);
+  } catch (const std::exception& ex) {
+    handleRequestError(ex.what());
+  }
 }
 
 void HttpSender::checkIfAvailable() {
