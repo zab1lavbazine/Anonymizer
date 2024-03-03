@@ -1,7 +1,6 @@
 #ifndef KAFKA_CONSUMER_HPP
 #define KAFKA_CONSUMER_HPP
 
-
 #include <librdkafka/rdkafkacpp.h>
 
 #include <condition_variable>
@@ -34,6 +33,7 @@ class KafkaConsumer : public RdKafka::ConsumeCb {
   void consume_cb(RdKafka::Message& message, void* opaquem);
   void processMessagePayload(const char* payload, size_t len);
   void pushInQueueIfAvailable(const HttpLog& httpLog);
+  void handleKafkaError(RdKafka::ErrorCode errorCode);
 
   std::string brokers;
   std::string topic;

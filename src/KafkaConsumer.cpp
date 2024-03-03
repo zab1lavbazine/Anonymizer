@@ -90,11 +90,10 @@ void KafkaConsumer::consume_cb(RdKafka::Message& message, void* opaquem) {
       break;
 
     default:
-      // Handle other errors
-      std::cerr << "Error: " << message.errstr() << std::endl;
+      std::cerr << "ERROR: " << message.errstr() << std::endl;
       OutputHandler::sendErrorInFile(message.errstr());
-      consumer->close();
-      exit(EXIT_FAILURE);
+      handleKafkaError(message.err());
+      break;
   }
 }
 
@@ -112,5 +111,25 @@ void KafkaConsumer::pushInQueueIfAvailable(const HttpLog& httpLog) {
     mutex->unlock();
   } else {
     innerHttpLogQueue.push(httpLog);
+  }
+}
+
+void KafkaConsumer::handleKafkaError(RdKafka::ErrorCode errorCode) {
+  switch (errorCode) {
+    case RdKafka::ERR__TRANSPORT:
+      std::cerr << "Transport error occurred. Retrying operation..."
+                << std::endl;
+      std::this_thread::sleep_for(std::chrono::seconds(1));
+      startConsuming();
+      break;
+    case RdKafka::ERR__ALL_BROKERS_DOWN:
+      std::cerr << "All Kafka brokers are down. Exiting application."
+                << std::endl;
+      exit(EXIT_FAILURE);
+      break;
+    default:
+      std::cerr << "Unhandled Kafka error: " << RdKafka::err2str(errorCode)
+                << std::endl;
+      break;
   }
 }
