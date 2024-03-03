@@ -4,7 +4,7 @@
 This project is a logging pipeline designed to consume HTTP records from an Apache Kafka topic (`http_log`), decode them using Cap'N Proto, and insert them into a ClickHouse table via HTTP requests.
 
 
-##Features
+## Features
 
 - **Real-time Processing**: Consumes HTTP log messages in real-time from a Kafka topic.
 - **Cap'N Proto Decoding**: Decodes the payload of Kafka messages using Cap'N Proto schema.
@@ -15,37 +15,37 @@ This project is a logging pipeline designed to consume HTTP records from an Apac
 - **Scalability**: Can scale to handle larger volumes of HTTP log data efficiently.
 
 
-##Components
+## Components
 
-###KafkaHandler
+### KafkaHandler
 
 Coordinates the Kafka consumer and HTTP sender components. It configures and manages the Kafka consumer to consume messages from the Kafka topic and the HTTP sender to send HTTP requests to ClickHouse.
 
 
-###KafkaConsumer 
+### KafkaConsumer 
 
 A Kafka consumer class responsible for consuming messages from the Kafka topic. It uses the librdkafka library to interface with Kafka. When a message is received, it sends the message to the CapncapDecoder that returns the decoded message. After that, it sends this message to the ThreadSafeQueue.
 
-###HttpSender   
+### HttpSender   
 
 A class responsible for the sending of HTTP requests to ClickHouse. It uses the libcurl library to interface with ClickHouse. It sends the HTTP request to the ClickHouse server via ch-proxy and returns the response.
 
 
-###Supporting Classes
+### Supporting Classes
 
 - **CapnCapDecoder**: A class responsible for decoding the Cap'N Proto encoded messages.
 - **ThreadSafeQueue**: A thread-safe queue that allows multiple threads to safely enqueue and dequeue messages.
 - **OutputHandler**: A class responsible for handling the output of the program. It logs the output to the console and to a file.
 - **HttpLog**: A class that represents the HTTP log message. It contains the fields of the HTTP log message and methods to serialize and deserialize the message.
 
-###Other Components
+### Other Components
 
 - **HttpLogQueries**: A class that contains the queries to create the ClickHouse table and insert data into the table.
 
 
 
 
-##Possible problems
+## Possible problems
 
 ##Latency of the Data:
 
