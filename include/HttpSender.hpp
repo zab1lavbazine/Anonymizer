@@ -28,7 +28,7 @@ class HttpSender {
   void createTable();
   bool sendQueryToClickHouse(const std::string& query);
   void startSending();
-  void handleResponse(const web::http::http_response& response);
+  bool handleResponse(const web::http::http_response& response);
   void handleRequestError(const std::string& errorMessage);
   bool handleResponseClickhouse(const web::http::http_response& response);
 

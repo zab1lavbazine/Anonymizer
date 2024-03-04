@@ -34,10 +34,11 @@ std::string HttpSender::constructSqlInsertQueries(
 
 /// @brief Handle the response from the server
 
-void HttpSender::handleResponse(const web::http::http_response& response) {
+bool HttpSender::handleResponse(const web::http::http_response& response) {
   if (response.status_code() == web::http::status_codes::OK) {
     std::cout << "Request sent successfully" << std::endl;
     innerHttpLogVector.clear();
+    return true;
   } else {
     std::cerr << "Failed to send request. Status code: "
               << response.status_code() << std::endl;
@@ -45,6 +46,7 @@ void HttpSender::handleResponse(const web::http::http_response& response) {
     OutputHandler::saveError("Failed to send request. Status code: " +
                                  std::to_string(response.status_code()),
                              LOG_ERROR_FILE);
+    return false;
   }
 }
 
@@ -57,24 +59,41 @@ void HttpSender::handleRequestError(const std::string& errorMessage) {
 
 /// @brief  Send the logs to the chproxy
 void HttpSender::send() {
-  try {
-    web::http::client::http_client client(U(url));
-    web::http::http_request request(web::http::methods::POST);
+  int retryCount = 0;
+  const int maxRetryCount = 3;
+  const int timeBetweenRetries = 5;
 
-    std::ostringstream requestBodyStream;
-    requestBodyStream << constructSqlInsertQueries(innerHttpLogVector);
+  while (retryCount < maxRetryCount) {
+    try {
+      web::http::client::http_client client(U(url));
+      web::http::http_request request(web::http::methods::POST);
 
-    request.headers().set_content_type(U("text/plain; charset=utf-8"));
-    request.set_body(requestBodyStream.str());
+      std::ostringstream requestBodyStream;
+      requestBodyStream << constructSqlInsertQueries(innerHttpLogVector);
 
-    auto response = client.request(request).get();
+      request.headers().set_content_type(U("text/plain; charset=utf-8"));
+      request.set_body(requestBodyStream.str());
 
-    handleResponse(response);
+      auto response = client.request(request).get();
 
-    OutputHandler::saveError(requestBodyStream.str(), REQUEST_FILE);
-    OutputHandler::saveError(response.to_string(), RESPONSE_FILE);
-  } catch (const std::exception& ex) {
-    handleRequestError(ex.what());
+      if (handleResponse(response)) {
+        break;
+      } else {
+        retryCount++;
+        std::cout << "Retrying... (Attempt " << retryCount << " of "
+                  << maxRetryCount << ")" << std::endl;
+        std::this_thread::sleep_for(std::chrono::seconds(timeBetweenRetries));
+      }
+      OutputHandler::saveError(requestBodyStream.str(), REQUEST_FILE);
+      OutputHandler::saveError(response.to_string(), RESPONSE_FILE);
+    } catch (const std::exception& ex) {
+      handleRequestError(ex.what());
+    }
+  }
+
+  if (retryCount == maxRetryCount) {
+    OutputHandler::saveError("Failed to send logs to ClickHouse",
+                             LOG_ERROR_FILE);
   }
 }
 
