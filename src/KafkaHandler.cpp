@@ -15,6 +15,7 @@ KafkaHandler::~KafkaHandler() {
   }
 }
 
+/// @brief start KafkaConsumer and HttpSender
 void KafkaHandler::start() {
   if (kafkaConsumer) {
     kafkaConsumerThread = std::make_unique<std::thread>(
@@ -29,6 +30,9 @@ void KafkaHandler::start() {
   }
 }
 
+/// @brief  configure Kafka consumer
+/// @param broker
+/// @param topic
 void KafkaHandler::configureKafkaConsumer(const std::string& broker,
                                           const std::string& topic) {
   kafkaConsumer = std::make_unique<KafkaConsumer>(broker, topic, &httpLogQueue,
@@ -36,6 +40,8 @@ void KafkaHandler::configureKafkaConsumer(const std::string& broker,
   kafkaConsumer->configure();
 }
 
+/// @brief configure HttpSender
+/// @param url
 void KafkaHandler::configureHttpSender(const std::string& url) {
   httpSender =
       std::make_unique<HttpSender>(url, &httpLogQueue, &mutex, &condition);

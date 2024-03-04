@@ -16,6 +16,7 @@
 #include "ThreadSafeQueue.hpp"
 #pragma once
 
+/// @brief class HttpSender to send logs to ClickHouse
 class HttpSender {
  public:
   HttpSender(const std::string& url, ThreadSafeQueue<HttpLog>* httpLogQueue,

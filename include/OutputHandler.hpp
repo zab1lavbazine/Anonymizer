@@ -16,6 +16,7 @@
 
 #pragma once
 
+/// @brief  Class to handle output
 class OutputHandler {
  public:
   static void saveError(const std::string& error, const std::string& filename);

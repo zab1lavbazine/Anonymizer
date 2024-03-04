@@ -88,6 +88,8 @@ std::string HttpLog::toSqlInsert() const {
   return sqlInsertStream.str();
 }
 
+/// @brief Anonymize the remoteAddr field by replacing the last octet with an X
+
 void HttpLog::anonymize() {
   // Modify the remoteAddr field
   size_t lastDotIndex = this->remoteAddr.find_last_of('.');

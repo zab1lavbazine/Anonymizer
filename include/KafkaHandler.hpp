@@ -17,6 +17,8 @@
 
 #pragma once
 
+/// @brief class KafkaHandler to handle Kafka and HTTP
+
 class KafkaHandler {
  public:
   KafkaHandler();

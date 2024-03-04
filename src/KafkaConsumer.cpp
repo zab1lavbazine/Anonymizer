@@ -31,6 +31,7 @@ KafkaConsumer::~KafkaConsumer() {
   }
 }
 
+/// @brief configure Kafka consumer and subscribe to the topic
 void KafkaConsumer::configure() {
   conf = RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL);
   tconf = RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC);
@@ -62,6 +63,7 @@ void KafkaConsumer::configure() {
   std::cout << "Kafka consumer subscribed to " << topic << std::endl;
 }
 
+/// @brief Start consuming logs from Kafka
 void KafkaConsumer::startConsuming() {
   while (true) {
     RdKafka::Message* message = consumer->consume(1000);
@@ -70,6 +72,9 @@ void KafkaConsumer::startConsuming() {
   }
 }
 
+/// @brief  Process the message payload and push it to the queue
+/// @param payload
+/// @param len
 void KafkaConsumer::processMessagePayload(const char* payload, size_t len) {
   if (payload && len > 0) {
     std::string alignedBuffer(payload, len);
@@ -79,6 +84,9 @@ void KafkaConsumer::processMessagePayload(const char* payload, size_t len) {
   }
 }
 
+/// @brief Callback function to consume logs from Kafka
+/// @param message
+/// @param opaquem
 void KafkaConsumer::consume_cb(RdKafka::Message& message, void* opaquem) {
   switch (message.err()) {
     case RdKafka::ERR__TIMED_OUT:
@@ -97,6 +105,8 @@ void KafkaConsumer::consume_cb(RdKafka::Message& message, void* opaquem) {
   }
 }
 
+/// @brief Push the log in the queue if it is not locked
+/// @param httpLog
 void KafkaConsumer::pushInQueueIfAvailable(const HttpLog& httpLog) {
   if (mutex->try_lock()) {
     if (httpLogQueue->size() < 1000) {

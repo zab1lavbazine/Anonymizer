@@ -15,6 +15,8 @@
 
 #pragma once
 
+/// @brief class HttpLog to store logs
+
 class HttpLog {
  private:
   int64_t timestampEpochMilli;

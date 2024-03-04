@@ -10,6 +10,8 @@ HttpSender::HttpSender(const std::string& url,
 
 HttpSender::~HttpSender() {}
 
+/// @brief Construct SQL INSERT queries for each log entry
+
 std::string HttpSender::constructSqlInsertQueries(
     const std::vector<HttpLog>& logs) {
   std::ostringstream requestBodyStream;
@@ -30,6 +32,8 @@ std::string HttpSender::constructSqlInsertQueries(
   return requestBodyStream.str();
 }
 
+/// @brief Handle the response from the server
+
 void HttpSender::handleResponse(const web::http::http_response& response) {
   if (response.status_code() == web::http::status_codes::OK) {
     std::cout << "Request sent successfully" << std::endl;
@@ -44,12 +48,14 @@ void HttpSender::handleResponse(const web::http::http_response& response) {
   }
 }
 
+/// @brief Handle the error during the request
 void HttpSender::handleRequestError(const std::string& errorMessage) {
   std::cerr << "Error during HTTP request : " << errorMessage << std::endl;
   OutputHandler::saveError("Error during HTTP request: " + errorMessage,
                            LOG_ERROR_FILE);
 }
 
+/// @brief  Send the logs to the chproxy
 void HttpSender::send() {
   try {
     web::http::client::http_client client(U(url));
@@ -72,6 +78,7 @@ void HttpSender::send() {
   }
 }
 
+/// @brief Check if there are logs available to send from the safe queue
 void HttpSender::checkIfAvailable() {
   std::unique_lock<std::mutex> lock(*mutex);
 
@@ -82,6 +89,7 @@ void HttpSender::checkIfAvailable() {
   lock.unlock();
 }
 
+/// @brief Create the table in ClickHouse if it does not exist
 void HttpSender::createTable() {
   // Send queries to ClickHouse to create tables
   if (sendQueryToClickHouse(CREATE_TABLE_HTTP_LOG) &&
@@ -124,6 +132,7 @@ bool HttpSender::sendQueryToClickHouse(const std::string& query) {
   return false;
 }
 
+/// @brief Start method to start sending logs to ClickHouse
 void HttpSender::startSending() {
   while (true) {
     std::cout << "Sleeping for 1 minute... -------------------->>>\n";

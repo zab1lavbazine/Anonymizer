@@ -19,6 +19,9 @@
 
 #pragma once
 
+/// @brief class KafkaConsumer to consume logs from Kafka
+
+
 class KafkaConsumer : public RdKafka::ConsumeCb {
  public:
   KafkaConsumer(const std::string& brokers, const std::string& topic,

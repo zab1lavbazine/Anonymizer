@@ -5,6 +5,9 @@
 
 #pragma once
 
+/// @brief class ThreadSafeQueue to make a queue thread safe between
+/// KafkaConsumer and HttpSender
+
 template <typename T>
 class ThreadSafeQueue {
  public:
