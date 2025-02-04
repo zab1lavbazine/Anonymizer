@@ -3,6 +3,7 @@
 CMakeFiles/
 compiled/
 output/
+.vscode/
 
 
 
@@ -11,6 +12,7 @@ anonymizer
 CMakeCache.txt
 cmake_install.cmake
 anonymizer
+http_log.capnp.*
 
 #ignore all cmake files except the main one
 cmake_install.cmake
