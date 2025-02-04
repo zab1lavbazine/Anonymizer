@@ -26,3 +26,6 @@ Makefile
 !src/
 !include/
 !capnproto/
+
+#do not ignore files
+!capnproto/http_log.capnp
