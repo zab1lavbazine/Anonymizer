@@ -1,17 +1,9 @@
 #include "KafkaConsumer.hpp"
 
-#pragma once
-
 KafkaConsumer::KafkaConsumer(const std::string& brokers,
                              const std::string& topic,
-                             ThreadSafeQueue<HttpLog>* httpLogQueue,
-                             std::mutex* mutex,
-                             std::condition_variable* condition)
-    : brokers(brokers),
-      topic(topic),
-      httpLogQueue(httpLogQueue),
-      mutex(mutex),
-      condition(condition) {
+                             ThreadSafeQueue<HttpLog>* httpLogQueue)
+    : brokers(brokers), topic(topic) {
   std::string errstr;
   conf = nullptr;
   tconf = nullptr;
@@ -105,22 +97,19 @@ void KafkaConsumer::consume_cb(RdKafka::Message& message, void* opaquem) {
   }
 }
 
-/// @brief Push the log in the queue if it is not locked
+/// @brief Push the log in the queue only from innerQueue, tryPush will not
+/// block thread if lock is not possible
 /// @param httpLog
 void KafkaConsumer::pushInQueueIfAvailable(const HttpLog& httpLog) {
-  if (mutex->try_lock()) {
-    if (httpLogQueue->size() < 1000) {
-      while (!innerHttpLogQueue.empty()) {
-        httpLogQueue->push(innerHttpLogQueue.front());
-        innerHttpLogQueue.pop();
-      }
-      httpLogQueue->push(httpLog);
-
-      condition->notify_one();
+  // pushing into inner log queue
+  innerHttpLogQueue.push(httpLog);
+  // try to push into general queue
+  if (httpLogQueue->size() < 1000) {
+    while (!innerHttpLogQueue.empty()) {
+      bool checkPush = httpLogQueue->tryPush(innerHttpLogQueue.front());
+      if (!checkPush) break;
+      innerHttpLogQueue.pop();
     }
-    mutex->unlock();
-  } else {
-    innerHttpLogQueue.push(httpLog);
   }
 }
 

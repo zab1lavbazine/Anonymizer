@@ -21,12 +21,10 @@
 
 /// @brief class KafkaConsumer to consume logs from Kafka
 
-
 class KafkaConsumer : public RdKafka::ConsumeCb {
  public:
   KafkaConsumer(const std::string& brokers, const std::string& topic,
-                ThreadSafeQueue<HttpLog>* httpLogQueue, std::mutex* mutex,
-                std::condition_variable* condition);
+                ThreadSafeQueue<HttpLog>* httpLogQueue);
   ~KafkaConsumer();
 
   void configure();
@@ -47,8 +45,6 @@ class KafkaConsumer : public RdKafka::ConsumeCb {
 
   std::queue<HttpLog> innerHttpLogQueue;
   ThreadSafeQueue<HttpLog>* httpLogQueue;
-  std::mutex* mutex;
-  std::condition_variable* condition;
 };
 
 #endif  // KAFKA_CONSUMER_HPP

@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <mutex>
+#include <optional>
 #include <queue>
 #include <stdexcept>
 #include <thread>
@@ -19,8 +20,7 @@
 /// @brief class HttpSender to send logs to ClickHouse
 class HttpSender {
  public:
-  HttpSender(const std::string& url, ThreadSafeQueue<HttpLog>* httpLogQueue,
-             std::mutex* mutex, std::condition_variable* condition);
+  HttpSender(const std::string& url, ThreadSafeQueue<HttpLog>* httpLogQueue);
   ~HttpSender();
 
   void send();
@@ -37,8 +37,6 @@ class HttpSender {
 
   std::string url;
   ThreadSafeQueue<HttpLog>* httpLogQueue;
-  std::mutex* mutex;
-  std::condition_variable* condition;
   std::vector<HttpLog> innerHttpLogVector;
   bool tableCreated = false;
 };

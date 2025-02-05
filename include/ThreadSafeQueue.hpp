@@ -1,6 +1,8 @@
 
+#include <atomic>
 #include <condition_variable>
 #include <mutex>
+#include <optional>
 #include <queue>
 
 #pragma once
@@ -13,31 +15,19 @@ class ThreadSafeQueue {
  public:
   ThreadSafeQueue() = default;
 
-  void push(const T& value) {
-    std::lock_guard<std::mutex> lock(mutex);
-    queue.push(value);
-    condition.notify_one();
-  }
+  bool tryPush(const T& value);
 
-  T pop() {
-    std::unique_lock<std::mutex> lock(mutex);
-    condition.wait(lock, [this] { return !queue.empty(); });
-    T value = queue.front();
-    queue.pop();
-    return value;
-  }
-  bool empty() const {
-    std::lock_guard<std::mutex> lock(mutex);
-    return queue.empty();
-  }
+  std::optional<T> pop();
 
-  size_t size() const {
-    std::lock_guard<std::mutex> lock(mutex);
-    return queue.size();
-  }
+  bool empty() const;
+
+  size_t size() const;
+
+  void shutdown();
 
  private:
   std::queue<T> queue;
   mutable std::mutex mutex;
   std::condition_variable condition;
+  std::atomic<bool> stop = false;
 };

@@ -11,7 +11,7 @@
 #include <cstdlib>
 #include <iostream>
 
-#include "http_log.capnp.h"
+#include "../build/home/bareldan/Anonymizer/capnproto/http_log.capnp.h"
 
 #pragma once
 

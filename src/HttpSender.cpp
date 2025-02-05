@@ -1,12 +1,9 @@
 #include "HttpSender.hpp"
 
 HttpSender::HttpSender(const std::string& url,
-                       ThreadSafeQueue<HttpLog>* httpLogQueue,
-                       std::mutex* mutex, std::condition_variable* condition)
-    : url(url),
-      httpLogQueue(httpLogQueue),
-      mutex(mutex),
-      condition(condition) {}
+                       ThreadSafeQueue<HttpLog>* httpLogQueue)
+
+    : url(url), httpLogQueue(httpLogQueue) {}
 
 HttpSender::~HttpSender() {}
 
@@ -97,15 +94,14 @@ void HttpSender::send() {
   }
 }
 
-/// @brief Check if there are logs available to send from the safe queue
+/// @brief Not so good decision, need to remake
+/// to get full queue or change on something else
 void HttpSender::checkIfAvailable() {
-  std::unique_lock<std::mutex> lock(*mutex);
-
   while (!httpLogQueue->empty()) {
-    innerHttpLogVector.push_back(httpLogQueue->pop());
+    std::optional<HttpLog> log = httpLogQueue->pop();
+    if (!log) break;  // check if log has value inside
+    innerHttpLogVector.push_back(log.value());
   }
-
-  lock.unlock();
 }
 
 /// @brief Create the table in ClickHouse if it does not exist

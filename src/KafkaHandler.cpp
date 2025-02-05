@@ -35,14 +35,12 @@ void KafkaHandler::start() {
 /// @param topic
 void KafkaHandler::configureKafkaConsumer(const std::string& broker,
                                           const std::string& topic) {
-  kafkaConsumer = std::make_unique<KafkaConsumer>(broker, topic, &httpLogQueue,
-                                                  &mutex, &condition);
+  kafkaConsumer = std::make_unique<KafkaConsumer>(broker, topic, &httpLogQueue);
   kafkaConsumer->configure();
 }
 
 /// @brief configure HttpSender
 /// @param url
 void KafkaHandler::configureHttpSender(const std::string& url) {
-  httpSender =
-      std::make_unique<HttpSender>(url, &httpLogQueue, &mutex, &condition);
+  httpSender = std::make_unique<HttpSender>(url, &httpLogQueue);
 }
